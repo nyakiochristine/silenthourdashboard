@@ -1,38 +1,25 @@
-# silent-hour-dashboard
+# Silent Hour Dashboard — @meetandreadnbo
 
-This template should help get you started developing with Vue 3 in Vite.
+This project is a dedicated interactive dashboard for **Meet and Read Nbo**, a community-based silent book club in Nairobi. It streamlines our meetups by managing the independent reading block and facilitating the transition into social activities.
 
-## Recommended IDE Setup
+## 1. Problem Statement
+During our meetups at local cafes and botanical gardens, it is essential to have a focused, 90-minute independent reading period without the distraction of manual phone alarms. Additionally, as our community grows, we needed a centralized way to track who is attending and what book they are currently reading to help kick-start our interactive post-reading social sessions.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## 2. Framework Choice
+I chose **Vue.js** for this project. 
+* **Reactivity:** Vue’s `<script setup>` and reactivity system (`ref`, `watch`) allowed me to build a complex, interval-based timer and a persistent data log in under 40 minutes.
+* **Development Speed:** Vue's template syntax is highly intuitive, allowing for rapid UI construction that remains readable and maintainable compared to alternative frameworks.
 
-## Recommended Browser Setup
+## 3. Technical Decisions
+* **Styling:** Utilized **Tailwind CSS** (via CDN) for a clean, professional aesthetic and responsive mobile-first layout.
+* **State Management:** Used Vue’s built-in `ref` and `watch` hooks for simple, effective local state management without the need for external libraries like Pinia.
+* **Data Persistence:** Implemented browser `localStorage` integration so that user data persists even if the browser is refreshed or closed during the meeting.
+* **Animations:** Custom CSS animations were implemented for the header and informational banner to provide a fluid, premium feel.
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
+## 4. How to Run Locally
+1. Ensure you have [Node.js](https://nodejs.org/) installed.
+2. Clone this repository to your machine.
+3. Open your terminal in the project folder and run:
+```bash
+   npm install
+   npm run dev
