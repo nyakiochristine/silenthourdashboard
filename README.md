@@ -2,6 +2,10 @@
 
 This project is a dedicated interactive dashboard for **Meet and Read Nbo**, a community-based silent book club in Nairobi. It streamlines our meetups by managing the independent reading block and facilitating the transition into social activities.
 
+# Meet and Read Nbo - Silent Hour Dashboard
+
+![Dashboard Preview](./screenshots/dashboard-preview.png)
+
 ## 1. Problem Statement
 During our meetups at local cafes and botanical gardens, it is essential to have a focused, 90-minute independent reading period without the distraction of manual phone alarms. Additionally, as our community grows, we needed a centralized way to track who is attending and what book they are currently reading to help kick-start our interactive post-reading social sessions.
 
