@@ -1,4 +1,4 @@
-# Silent Hour Dashboard — @meetandreadnbo
+# Silent Hour Dashboard — Meet and Read NBO
 
 This project is a dedicated interactive dashboard for **Meet and Read Nbo**, a community-based silent book club in Nairobi. It streamlines our meetups by managing the independent reading block and facilitating the transition into social activities.
 
