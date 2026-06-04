@@ -8,8 +8,6 @@ import SpeakerPicker from './components/SpeakerPicker.vue'
 import AuthModal from './components/AuthModal.vue'
 import { supabase } from './supabase'
 
-
-
 const readingLog = ref([])
 const user = ref(null)
 const userProfile = ref(null)
@@ -66,139 +64,170 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#fcfbfa] bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] text-stone-800 selection:bg-amber-100 relative overflow-x-hidden pb-12">
+  <div class="min-h-screen bg-[#F7F6F3] text-[#1B1B18] selection:bg-[#2B593F]/10 font-body">
     
-    <div class="absolute top-0 left-1/4 w-96 h-96 bg-indigo-100/40 rounded-full filter blur-3xl -z-10 pointer-events-none"></div>
-    <div class="absolute top-20 right-1/4 w-96 h-96 bg-amber-50/60 rounded-full filter blur-3xl -z-10 pointer-events-none"></div>
-
-    <main class="max-w-5xl mx-auto p-4 md:p-8 grid md:grid-cols-12 gap-6 md:gap-8 font-sans relative">
-      
-      <!-- 🌟 NEW: Top Right Navigation Bar -->
-      <nav class="md:col-span-12 flex justify-end items-center mb-2 z-10">
+    <!-- Sticky Navigation -->
+    <nav class="border-b border-[#E6E3DE] bg-white/90 backdrop-blur-md sticky top-0 z-50">
+      <div class="max-w-5xl mx-auto px-5 md:px-8 h-14 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="font-display text-lg text-[#1B1B18]">Meet & Read</span>
+          <span class="hidden sm:inline text-[10px] tracking-[0.2em] uppercase text-[#A09D97] font-medium border-l border-[#E6E3DE] pl-3">Nairobi</span>
+        </div>
         
-        <!-- Upgraded Login Button -->
+        <!-- Guest: Sign In -->
         <button 
           v-if="!user"
           @click="showAuthModal = true"
-          class="group flex items-center gap-2 bg-white border border-stone-200 hover:border-stone-400 text-stone-700 hover:text-stone-900 text-xs font-bold px-5 py-2.5 rounded-full transition-all duration-200 shadow-sm hover:shadow-md"
+          class="flex items-center gap-2 text-[12px] font-medium text-[#6F6C66] hover:text-[#1B1B18] transition-colors"
         >
-          <span class="text-stone-400 group-hover:text-stone-600 transition-colors">🔒</span>
-          Member Login
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          Sign in
         </button>
         
-        <!-- Upgraded Logged-In State -->
-        <div v-else class="flex items-center gap-4 bg-white border border-stone-200 px-5 py-2 rounded-full shadow-sm">
-          <span 
-            class="text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5"
-            :class="userProfile?.role === 'admin' ? 'text-indigo-600' : 'text-emerald-600'"
-          >
-            👑 {{ userProfile?.role === 'admin' ? 'Club Organizer' : userProfile?.username || 'Member' }}
-          </span>
-          <div class="w-px h-3 bg-stone-300"></div>
-          <button @click="handleLogout" class="text-[10px] text-stone-500 hover:text-stone-900 tracking-wider uppercase font-bold transition-colors">
-            Logout
+        <!-- Authenticated User -->
+        <div v-else class="flex items-center gap-3">
+          <div class="flex items-center gap-1.5">
+            <div 
+              class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+              :class="userProfile?.role === 'admin' ? 'bg-[#2B593F]' : 'bg-[#6F6C66]'"
+            >
+              {{ (userProfile?.username || 'U')[0].toUpperCase() }}
+            </div>
+            <span class="text-[12px] font-medium text-[#1B1B18] hidden sm:inline">{{ userProfile?.username || 'Member' }}</span>
+            <span v-if="userProfile?.role === 'admin'" class="text-[9px] tracking-wider uppercase font-bold text-[#2B593F] bg-[#EDF3EF] px-1.5 py-0.5 rounded">Admin</span>
+          </div>
+          <button @click="handleLogout" class="text-[11px] text-[#A09D97] hover:text-[#1B1B18] transition-colors font-medium">
+            Sign out
           </button>
         </div>
-      </nav>
+      </div>
+    </nav>
 
-      <!-- Premium Editorial Header Area -->
-      <header class="md:col-span-12 text-center max-w-2xl mx-auto mb-2">
-        
-        <h1 class="text-4xl md:text-5xl font-black text-stone-900 tracking-tight font-serif mb-2 flex justify-center overflow-hidden py-1">
+    <main class="max-w-5xl mx-auto px-5 md:px-8 py-10 md:py-14">
+      
+      <!-- Hero Header -->
+      <header class="mb-10">
+        <p class="text-[11px] tracking-[0.2em] uppercase font-semibold text-[#A09D97] mb-4">Silent Hour Dashboard</p>
+        <h1 class="text-4xl md:text-[3.5rem] font-display text-[#1B1B18] tracking-tight leading-[1.1] mb-4 flex flex-wrap overflow-hidden py-1">
           <span 
             v-for="(char, index) in headlineText" 
             :key="index"
             class="inline-block token-char"
             :style="{ animationDelay: `${index * 40}ms` }"
             v-html="char === ' ' ? '&nbsp;' : char"
-          >
-          </span>
+          />
         </h1>
-
-        <!-- The Dashboard badge now sits perfectly centered on its own -->
-        <div class="flex justify-center mb-6">
-          <div class="inline-flex items-center gap-2 bg-stone-900/5 text-stone-600 font-bold tracking-widest uppercase text-[10px] px-3 py-1 rounded-full border border-stone-200/40 backdrop-blur-sm">
-            <span>✨</span> Silent Hour Dashboard <span>✨</span>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap justify-center gap-3 mb-6">
-          <button
-            @click="activeTab = 'dashboard'"
-            :class="activeTab === 'dashboard' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'
-            + ' text-[11px] font-semibold px-4 py-2 rounded-full transition'">
-            Dashboard
-          </button>
-          <button
-            @click="activeTab = 'archive'"
-            :class="activeTab === 'archive' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'
-            + ' text-[11px] font-semibold px-4 py-2 rounded-full transition'">
-            Meetup Archive
-          </button>
-          <button
-            v-if="userProfile?.role === 'admin'"
-            @click="activeTab = 'archive'"
-            class="text-[11px] font-semibold px-4 py-2 rounded-full border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition"
-          >
-            + New Meetup
-          </button>
-        </div>
-        
-        <div class="bg-white/70 backdrop-blur-md p-5 rounded-2xl text-stone-600 border border-stone-200/60 text-left shadow-[0_8px_30px_rgb(0,0,0,0.02)] relative group hover:border-stone-300 transition-all duration-300">
-          <div class="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-amber-200 to-transparent"></div>
-          <p class="font-serif font-bold text-stone-900 mb-1 flex items-center gap-1.5 text-base">
-            📖 The Silent Hour Experience
-          </p>
-          <div class="leading-relaxed text-sm text-stone-600/90 space-y-3">
-            <p>
-              Welcome to Nairobi's premier silent book club! We gather in local cafes and botanical gardens for a dedicated 90 minutes of independent reading, followed by interactive craft activities and social connection.
-            </p>
-            <p class="italic font-serif text-stone-900 text-center py-0.5">
-              “Read what you want, in comfortable silence, together.”
-            </p>
-          </div>
-
-          <div class="flex justify-center mt-5 pt-2">
-            <a href="https://instagram.com/meetandreadnbo" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-[#4f46e5] text-white hover:bg-[#4338ca] font-semibold tracking-wide text-xs px-5 py-2.5 rounded-full transition-all duration-200 shadow-md hover:scale-[1.02] active:scale-[0.98]">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-              <span>Follow on Instagram</span>
-            </a>
-          </div>
-        </div>
+        <p class="text-[#6F6C66] text-base md:text-lg leading-relaxed max-w-lg font-display italic">
+          "Read what you want, in comfortable silence, together."
+        </p>
       </header>
 
-      <hr class="md:col-span-12 border-stone-200/60 my-2" />
-
-      <div class="md:col-span-5 flex flex-col gap-6">
-        <div><Timer /></div>
-        <div><SpeakerPicker :log="readingLog" /></div>
-        <div><Insights :log="readingLog" /></div>
+      <!-- Tab Navigation -->
+      <div class="flex items-center gap-1 mb-8 border-b border-[#E6E3DE]">
+        <button
+          @click="activeTab = 'dashboard'"
+          :class="[
+            activeTab === 'dashboard' 
+              ? 'text-[#1B1B18] border-[#1B1B18]' 
+              : 'text-[#A09D97] border-transparent hover:text-[#6F6C66]',
+            'text-[13px] font-medium pb-3 border-b-2 transition-colors px-1 mr-5'
+          ]"
+        >
+          Session
+        </button>
+        <button
+          @click="activeTab = 'archive'"
+          :class="[
+            activeTab === 'archive' 
+              ? 'text-[#1B1B18] border-[#1B1B18]' 
+              : 'text-[#A09D97] border-transparent hover:text-[#6F6C66]',
+            'text-[13px] font-medium pb-3 border-b-2 transition-colors px-1 mr-5'
+          ]"
+        >
+          Archive
+        </button>
+        <button
+          v-if="userProfile?.role === 'admin'"
+          @click="activeTab = 'archive'"
+          class="text-[12px] font-medium text-[#2B593F] hover:text-[#1D4230] transition-colors ml-auto pb-3 flex items-center gap-1"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+          New Meetup
+        </button>
       </div>
 
-      <div class="md:col-span-7">
-        <div class="sticky top-6">
-          <component
-            :is="activeTab === 'archive' ? MeetupArchive : ReadingLog"
-            :log="readingLog"
-            :user="user"
-            :profile="userProfile"
-            @refreshList="fetchBooks"
-            @removeBook="removeBook"
-          />
+      <!-- Dashboard View -->
+      <div v-if="activeTab === 'dashboard'">
+        <div class="grid md:grid-cols-12 gap-5 md:gap-6">
+          <div class="md:col-span-5 flex flex-col gap-5">
+            <Timer />
+            <SpeakerPicker :log="readingLog" />
+            <Insights :log="readingLog" />
+          </div>
+          <div class="md:col-span-7">
+            <div class="sticky top-20">
+              <ReadingLog
+                :log="readingLog"
+                :user="user"
+                :profile="userProfile"
+                @refreshList="fetchBooks"
+                @removeBook="removeBook"
+              />
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Archive View -->
+      <div v-else>
+        <MeetupArchive :profile="userProfile" />
+      </div>
     </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-[#E6E3DE] mt-8">
+      <div class="max-w-5xl mx-auto px-5 md:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <span class="text-[12px] text-[#A09D97]">© 2026 Meet and Read Nbo</span>
+        <a 
+          href="https://instagram.com/meetandreadnbo" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          class="flex items-center gap-1.5 text-[12px] text-[#A09D97] hover:text-[#1B1B18] transition-colors"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+          @meetandreadnbo
+        </a>
+      </div>
+    </footer>
 
     <AuthModal v-if="showAuthModal" :supabase="supabase" @close="showAuthModal = false" />
   </div>
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,400&display=swap');
-.font-serif { font-family: 'Playfair Display', Georgia, serif; }
+/* Custom font utilities */
+.font-display { font-family: 'DM Serif Display', Georgia, serif; }
+.font-body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+.font-timer { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+
+/* Title character reveal animation */
 @keyframes revealLetter {
-  0% { opacity: 0; transform: translateY(0.4em) scale(0.96); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0% { opacity: 0; transform: translateY(0.5em); }
+  100% { opacity: 1; transform: translateY(0); }
 }
-.token-char { opacity: 0; white-space: pre; animation: revealLetter 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.token-char {
+  opacity: 0;
+  display: inline-block;
+  white-space: pre;
+  animation: revealLetter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Fade in utility */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
 </style>

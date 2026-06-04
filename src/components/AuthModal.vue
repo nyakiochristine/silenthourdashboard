@@ -10,7 +10,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-// Auth UI state variables encapsulated here
 const isSignUp = ref(false)
 const email = ref('')
 const password = ref('')
@@ -45,44 +44,58 @@ const handleAuth = async () => {
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-    <div class="bg-[#fcfbfa] w-full max-w-sm rounded-2xl border border-stone-200 p-6 shadow-2xl relative">
+  <div 
+    class="fixed inset-0 bg-[#1B1B18]/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" 
+    @click.self="emit('close')"
+  >
+    <div class="bg-white w-full max-w-sm rounded-2xl border border-[#E6E3DE] p-7 shadow-xl relative">
       
-      <!-- Close Button -->
-      <button @click="emit('close')" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 text-lg font-bold">
-        &times;
+      <!-- Close -->
+      <button @click="emit('close')" class="absolute top-4 right-4 text-[#A09D97] hover:text-[#1B1B18] transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
 
-      <h3 class="font-serif font-bold text-xl text-stone-900 mb-1 text-center">
-        {{ isSignUp ? 'Create Club Account' : 'Welcome Back' }}
+      <h3 class="font-display text-xl text-[#1B1B18] mb-1">
+        {{ isSignUp ? 'Create Account' : 'Welcome Back' }}
       </h3>
-      <p class="text-xs text-stone-500 text-center mb-6">
-        {{ isSignUp ? 'Join us to personalize your reading sessions.' : 'Sign in to sync your current read.' }}
+      <p class="text-[13px] text-[#6F6C66] mb-6">
+        {{ isSignUp ? 'Join the club to log your reads.' : 'Sign in to sync your reading.' }}
       </p>
 
       <form @submit.prevent="handleAuth" class="space-y-4">
         <div>
-          <label class="block text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-1">Email Address</label>
-          <input v-model="email" type="email" required class="w-full px-3 py-2 bg-white text-stone-800 border border-stone-200 rounded-xl focus:outline-none focus:border-indigo-500 text-sm" placeholder="name@example.com"/>
+          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Email</label>
+          <input 
+            v-model="email" type="email" required 
+            class="w-full px-3.5 py-2.5 bg-[#F7F6F3] text-[#1B1B18] border border-[#E6E3DE] rounded-xl focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 text-sm transition-colors placeholder:text-[#C5C2BC]" 
+            placeholder="name@example.com"
+          />
         </div>
 
         <div>
-          <label class="block text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-1">Password</label>
-          <input v-model="password" type="password" required class="w-full px-3 py-2 bg-white text-stone-800 border border-stone-200 rounded-xl focus:outline-none focus:border-indigo-500 text-sm" placeholder="••••••••"/>
+          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Password</label>
+          <input 
+            v-model="password" type="password" required 
+            class="w-full px-3.5 py-2.5 bg-[#F7F6F3] text-[#1B1B18] border border-[#E6E3DE] rounded-xl focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 text-sm transition-colors placeholder:text-[#C5C2BC]" 
+            placeholder="••••••••"
+          />
         </div>
 
-        <p v-if="authError" class="text-xs font-medium text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-100">
-          ⚠️ {{ authError }}
+        <p v-if="authError" class="text-[12px] font-medium text-[#B84233] bg-[#FBF0ED] p-3 rounded-lg border border-[#B84233]/10">
+          {{ authError }}
         </p>
 
-        <button type="submit" :disabled="authLoading" class="w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold text-sm py-2.5 rounded-xl shadow transition-all duration-200">
-          {{ authLoading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In') }}
+        <button 
+          type="submit" :disabled="authLoading" 
+          class="w-full bg-[#2B593F] hover:bg-[#1D4230] text-white font-semibold text-sm py-3 rounded-xl transition-all duration-200 disabled:opacity-60 active:scale-[0.98]"
+        >
+          {{ authLoading ? 'Processing...' : (isSignUp ? 'Create Account' : 'Sign In') }}
         </button>
       </form>
 
-      <div class="mt-5 pt-3 border-t border-stone-200/60 text-center">
-        <button @click="isSignUp = !isSignUp" class="text-xs text-indigo-600 hover:text-indigo-800 underline font-medium">
-          {{ isSignUp ? 'Already have an account? Sign In' : "Don't have an account yet? Sign Up" }}
+      <div class="mt-5 pt-4 border-t border-[#E6E3DE] text-center">
+        <button @click="isSignUp = !isSignUp" class="text-[12px] text-[#2B593F] hover:text-[#1D4230] font-medium transition-colors">
+          {{ isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up" }}
         </button>
       </div>
     </div>

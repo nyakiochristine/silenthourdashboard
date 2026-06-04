@@ -9,6 +9,7 @@ const props = defineProps({
 })
 
 const chosenSpeaker = ref('')
+const isDrawing = ref(false)
 
 const pickFirstSpeaker = () => {
   if (!props.log || props.log.length === 0) {
@@ -24,35 +25,47 @@ const pickFirstSpeaker = () => {
     return
   }
   
-  const randomIndex = Math.floor(Math.random() * uniqueReaders.length)
-  chosenSpeaker.value = uniqueReaders[randomIndex]
+  // Shuffle animation — rapidly cycle names before landing on one
+  isDrawing.value = true
+  let shuffleCount = 0
+  const shuffleInterval = setInterval(() => {
+    chosenSpeaker.value = uniqueReaders[Math.floor(Math.random() * uniqueReaders.length)]
+    shuffleCount++
+    if (shuffleCount >= 8) {
+      clearInterval(shuffleInterval)
+      const randomIndex = Math.floor(Math.random() * uniqueReaders.length)
+      chosenSpeaker.value = uniqueReaders[randomIndex]
+      isDrawing.value = false
+    }
+  }, 80)
 }
 </script>
 
 <template>
-  <div class="bg-white p-6 rounded-2xl border border-stone-200/60 text-center relative overflow-hidden group">
-    <!-- Top accent border line -->
-    <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-300 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-    <h2 class="text-sm font-bold tracking-wider text-stone-400 uppercase mb-1">Intro Order</h2>
-    <p class="text-xs italic text-stone-500 font-serif mb-4">Who will share their insights first?</p>
+  <div class="bg-white p-6 rounded-2xl border border-[#E6E3DE]">
+    <p class="text-[11px] tracking-[0.2em] uppercase font-semibold text-[#A09D97] mb-1">First Speaker</p>
+    <p class="text-[13px] text-[#6F6C66] mb-4">Who shares their book first?</p>
     
-    <!-- Display Box -->
-    <div class="min-h-[4.5rem] flex items-center justify-center bg-stone-50 rounded-xl mb-4 p-3 border border-stone-100 transition-all duration-300">
-      <span v-if="chosenSpeaker" class="text-lg font-serif font-bold text-stone-900 animate-fade-in">
-        ✨ <span class="underline decoration-amber-300 decoration-2 underline-offset-4">{{ chosenSpeaker }}</span> goes first!
+    <!-- Result Display -->
+    <div class="min-h-[3.5rem] flex items-center justify-center bg-[#F7F6F3] rounded-xl mb-4 px-4 py-3 border border-[#E6E3DE]/60">
+      <span v-if="chosenSpeaker && !isDrawing" class="text-lg font-display text-[#1B1B18] animate-fade-in">
+        {{ chosenSpeaker }}
       </span>
-      <span v-else class="text-xs text-stone-400 tracking-wide uppercase font-medium">
-        Waiting to draw...
+      <span v-else-if="isDrawing" class="text-lg font-display text-[#A09D97] transition-opacity">
+        {{ chosenSpeaker }}
+      </span>
+      <span v-else class="text-[12px] text-[#C5C2BC] tracking-wide font-medium">
+        No one drawn yet
       </span>
     </div>
     
-    <!-- Editorial Button -->
+    <!-- Draw Button -->
     <button 
-      @click="pickFirstSpeaker" 
-      class="w-full bg-stone-950 text-stone-50 hover:bg-stone-800 py-3 rounded-xl font-medium tracking-wide text-xs uppercase shadow-sm transition-all duration-200 active:scale-[0.98]"
+      @click="pickFirstSpeaker"
+      :disabled="isDrawing"
+      class="w-full bg-[#1B1B18] text-white hover:bg-[#2d2d2a] py-3 rounded-xl text-[12px] font-semibold tracking-wide uppercase transition-all duration-200 active:scale-[0.98] disabled:opacity-60"
     >
-      Draw a Name 🎲
+      {{ isDrawing ? 'Drawing...' : 'Draw a Name' }}
     </button>
   </div>
 </template>
