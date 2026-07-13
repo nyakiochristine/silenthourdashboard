@@ -1,11 +1,12 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Timer from './components/Timer.vue'
 import ReadingLog from './components/ReadingLog.vue'
 import MeetupArchive from './components/MeetupArchive.vue'
 import Insights from './components/Insights.vue'
 import SpeakerPicker from './components/SpeakerPicker.vue'
 import AuthModal from './components/AuthModal.vue'
+import UserProfile from './components/UserProfile.vue'
 import { supabase } from './supabase'
 
 const readingLog = ref([])
@@ -14,12 +15,67 @@ const userProfile = ref(null)
 const activeTab = ref('dashboard')
 const showAuthModal = ref(false)
 
+const sessions = ref([])
+
 const headlineText = 'Meet and Read Nbo'.split('')
 
+const getLocalTodayString = () => {
+  const d = new Date()
+  return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
+}
+
+const activeSession = computed(() => {
+  const today = getLocalTodayString()
+  // Upcoming sessions or sessions happening today (sort ascending by date to get the earliest upcoming one)
+  const upcoming = sessions.value.filter(s => s.session_date >= today).sort((a, b) => a.session_date.localeCompare(b.session_date))
+  return upcoming.length > 0 ? upcoming[0] : null
+})
+
+const pastSessions = computed(() => {
+  const today = getLocalTodayString()
+  // Past sessions (sort descending by date to show most recent past first)
+  return sessions.value.filter(s => s.session_date < today).sort((a, b) => b.session_date.localeCompare(a.session_date))
+})
+
+const fetchSessions = async () => {
+  const { data, error } = await supabase
+    .from('meetup_sessions')
+    .select('*, books(*), rsvps(*)') // Assuming books now has a session_id column linking back
+    
+  if (!error && data) {
+    sessions.value = data
+  }
+}
+
+const isRSVPed = computed(() => {
+  if (!activeSession.value || !user.value) return false
+  return activeSession.value.rsvps?.some(r => r.user_id === user.value.id)
+})
+
+const toggleRSVP = async () => {
+  if (!user.value || !activeSession.value) {
+    showAuthModal.value = true
+    return
+  }
+  
+  if (isRSVPed.value) {
+    await supabase.from('rsvps').delete().match({ session_id: activeSession.value.id, user_id: user.value.id })
+  } else {
+    await supabase.from('rsvps').insert([{ session_id: activeSession.value.id, user_id: user.value.id }])
+  }
+  
+  await fetchSessions()
+}
+
 const fetchBooks = async () => {
+  if (!activeSession.value) {
+    readingLog.value = []
+    return
+  }
   const { data, error } = await supabase
     .from('books')
     .select('*')
+    .eq('session_id', activeSession.value.id)
     .order('id', { ascending: false })
   
   if (!error && data) {
@@ -50,7 +106,9 @@ const handleLogout = async () => {
   readingLog.value = []
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await fetchSessions()
+  
   supabase.auth.onAuthStateChange(async (_event, session) => {
     user.value = session?.user ?? null
     if (user.value) {
@@ -147,6 +205,18 @@ onMounted(() => {
           Archive
         </button>
         <button
+          v-if="user"
+          @click="activeTab = 'profile'"
+          :class="[
+            activeTab === 'profile' 
+              ? 'text-[#1B1B18] border-[#1B1B18]' 
+              : 'text-[#A09D97] border-transparent hover:text-[#6F6C66]',
+            'text-[13px] font-medium pb-3 border-b-2 transition-colors px-1 mr-5'
+          ]"
+        >
+          Profile
+        </button>
+        <button
           v-if="userProfile?.role === 'admin'"
           @click="activeTab = 'archive'"
           class="text-[12px] font-medium text-[#2B593F] hover:text-[#1D4230] transition-colors ml-auto pb-3 flex items-center gap-1"
@@ -158,7 +228,71 @@ onMounted(() => {
 
       <!-- Dashboard View -->
       <div v-if="activeTab === 'dashboard'">
-        <div class="grid md:grid-cols-12 gap-5 md:gap-6">
+        <div v-if="activeSession" class="mb-6 bg-white rounded-2xl border border-[#E6E3DE] overflow-hidden flex flex-col sm:flex-row">
+          <!-- Image Section -->
+          <div v-if="activeSession.image_url" class="sm:w-1/3 h-48 sm:h-auto border-b sm:border-b-0 sm:border-r border-[#E6E3DE] relative">
+             <img :src="activeSession.image_url" alt="Venue" class="w-full h-full object-cover" />
+          </div>
+          
+          <!-- Content Section -->
+          <div class="p-6 flex-1 flex flex-col justify-center">
+            <template v-if="activeSession.session_date === getLocalTodayString()">
+              <!-- TODAY'S SESSION BANNER -->
+              <div class="flex items-center gap-2 mb-2">
+                <span class="flex h-2 w-2 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2B593F] opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-[#2B593F]"></span>
+                </span>
+                <p class="text-[11px] tracking-[0.2em] uppercase font-semibold text-[#2B593F]">Happening Today</p>
+              </div>
+              <h2 class="text-2xl md:text-3xl font-display text-[#1B1B18] mb-2">Welcome to the day's session!</h2>
+              <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-[13px] text-[#6F6C66] mb-4">
+                <div class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                  <span>{{ activeSession.location }}</span>
+                </div>
+                <div v-if="activeSession.time" class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span>{{ activeSession.time }}</span>
+                </div>
+              </div>
+              <p class="text-[14px] text-[#1B1B18] font-medium leading-relaxed">Find a cozy spot, open your book, and enjoy the silent hour. <span v-if="activeSession.activity" class="text-[#6F6C66] font-normal">Today's theme: {{ activeSession.activity }}</span></p>
+            </template>
+            
+            <template v-else>
+              <!-- UPCOMING SESSION BANNER -->
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div>
+                  <p class="text-[11px] tracking-[0.2em] uppercase font-semibold text-[#2B593F] mb-1.5">{{ activeSession.session_date }}</p>
+                  <h2 class="text-xl md:text-2xl font-display text-[#1B1B18]">{{ activeSession.location }}</h2>
+                  <div class="flex items-center gap-2 text-[13px] text-[#6F6C66] mt-1.5">
+                    <span v-if="activeSession.time">{{ activeSession.time }}</span>
+                    <span v-if="activeSession.time && activeSession.activity" class="text-[#E6E3DE]">|</span>
+                    <span v-if="activeSession.activity">{{ activeSession.activity }}</span>
+                  </div>
+                  <p v-if="activeSession.description" class="text-[13px] text-[#A09D97] mt-3 max-w-md leading-relaxed">{{ activeSession.description }}</p>
+                </div>
+                
+                <!-- RSVP Action -->
+                <div class="bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl p-4 min-w-[140px] text-center shrink-0 w-full sm:w-auto">
+                  <p class="text-[11px] tracking-[0.1em] uppercase font-semibold text-[#A09D97] mb-2.5">{{ activeSession.rsvps?.length || 0 }} Attending</p>
+                  <button 
+                    @click="toggleRSVP"
+                    class="w-full text-[12px] font-semibold tracking-wide uppercase px-4 py-2.5 rounded-lg transition-all duration-200 active:scale-[0.98]"
+                    :class="isRSVPed ? 'bg-[#EDF3EF] text-[#2B593F] border border-[#2B593F]/20 hover:bg-[#E2ECE6]' : 'bg-[#1B1B18] text-white hover:bg-[#2C2C28]'"
+                  >
+                    {{ isRSVPed ? 'Attending ✓' : 'RSVP Now' }}
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div v-else class="mb-6 bg-[#F7F6F3] p-8 text-center rounded-2xl border border-[#E6E3DE]">
+          <p class="text-[13px] text-[#6F6C66]">No upcoming sessions scheduled.</p>
+        </div>
+
+        <div v-if="activeSession" class="grid md:grid-cols-12 gap-5 md:gap-6">
           <div class="md:col-span-5 flex flex-col gap-5">
             <Timer />
             <SpeakerPicker :log="readingLog" />
@@ -170,6 +304,7 @@ onMounted(() => {
                 :log="readingLog"
                 :user="user"
                 :profile="userProfile"
+                :activeSession="activeSession"
                 @refreshList="fetchBooks"
                 @removeBook="removeBook"
               />
@@ -179,8 +314,17 @@ onMounted(() => {
       </div>
 
       <!-- Archive View -->
-      <div v-else>
-        <MeetupArchive :profile="userProfile" />
+      <div v-else-if="activeTab === 'archive'">
+        <MeetupArchive 
+          :profile="userProfile" 
+          :sessions="pastSessions"
+          @refresh-sessions="fetchSessions"
+        />
+      </div>
+
+      <!-- Profile View -->
+      <div v-else-if="activeTab === 'profile' && user">
+        <UserProfile :user="user" :profile="userProfile" />
       </div>
     </main>
 
