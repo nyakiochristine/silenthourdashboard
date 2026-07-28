@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
 
 const props = defineProps({
@@ -18,10 +18,15 @@ const emit = defineEmits(['refreshSessions'])
 const submitLoading = ref(false)
 const submitError = ref('')
 const showForm = ref(false)
+const today = () => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
+const upcomingSessions = computed(() => props.sessions.filter(session => session.session_date >= today()).sort((a, b) => a.session_date.localeCompare(b.session_date)))
+const archivedSessions = computed(() => props.sessions.filter(session => session.session_date < today()).sort((a, b) => b.session_date.localeCompare(a.session_date)))
 
 const newSession = reactive({
   session_date: '',
   time: '',
+  start_time: '',
+  capacity: '',
   location: '',
   activity: '',
   description: '',
@@ -31,6 +36,8 @@ const newSession = reactive({
 const resetNewSession = () => {
   newSession.session_date = ''
   newSession.time = ''
+  newSession.start_time = ''
+  newSession.capacity = ''
   newSession.location = ''
   newSession.activity = ''
   newSession.description = ''
@@ -54,6 +61,8 @@ const createSession = async () => {
         host_id: props.profile?.id || null,
         session_date: newSession.session_date,
         time: newSession.time,
+        start_time: newSession.start_time || null,
+        capacity: newSession.capacity ? Number(newSession.capacity) : null,
         location: newSession.location,
         activity: newSession.activity,
         description: newSession.description,
@@ -62,7 +71,11 @@ const createSession = async () => {
     ])
 
   if (sessionError) {
-    submitError.value = sessionError.message || 'Unable to create meetup session.'
+    const diagnostic = [sessionError.message, sessionError.details, sessionError.hint, sessionError.code]
+      .filter(Boolean)
+      .join(' — ')
+    submitError.value = diagnostic || 'Unable to create meetup session.'
+    console.error('Meetup session save failed:', sessionError)
     submitLoading.value = false
     return
   }
@@ -80,8 +93,8 @@ const createSession = async () => {
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
       <div>
         <p class="text-[11px] tracking-[0.2em] uppercase font-semibold text-[#A09D97] mb-1">Archive</p>
-        <h2 class="text-xl font-display text-[#1B1B18]">Past Gatherings</h2>
-        <p class="text-[13px] text-[#6F6C66] mt-1 max-w-lg">Locations, craft activities, and books from every session.</p>
+        <h2 class="text-xl font-display text-[#1B1B18]">Meetups</h2>
+        <p class="text-[13px] text-[#6F6C66] mt-1 max-w-lg">Upcoming plans and a record of every gathering.</p>
       </div>
       <button 
         v-if="props.profile?.role === 'admin'" 
@@ -109,12 +122,21 @@ const createSession = async () => {
           <input v-model="newSession.time" placeholder="e.g. 10:00 AM - 1:00 PM" class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors placeholder:text-[#C5C2BC]" />
         </div>
         <div>
+          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Start Time</label>
+          <input type="time" v-model="newSession.start_time" class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors" />
+          <p class="mt-1 text-[10px] text-[#A09D97]">Used for calendar reminders.</p>
+        </div>
+        <div>
           <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Location</label>
           <input v-model="newSession.location" placeholder="Cafe or venue" class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors placeholder:text-[#C5C2BC]" />
         </div>
         <div>
           <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Activity</label>
           <input v-model="newSession.activity" placeholder="Craft or theme" class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors placeholder:text-[#C5C2BC]" />
+        </div>
+        <div>
+          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Capacity</label>
+          <input type="number" min="1" v-model="newSession.capacity" placeholder="e.g. 25 (Optional)" class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors placeholder:text-[#C5C2BC]" />
         </div>
         <div class="md:col-span-2">
           <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Cafe Image URL</label>
@@ -135,9 +157,22 @@ const createSession = async () => {
       </div>
     </div>
 
+    <section v-if="upcomingSessions.length" class="mb-9">
+      <p class="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2B593F]">Upcoming</p>
+      <div class="space-y-3">
+        <article v-for="session in upcomingSessions" :key="session.id" class="rounded-2xl border border-[#BFD4C3] bg-[#EDF3EF] p-5">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2B593F]">{{ session.session_date }}<span v-if="session.time"> · {{ session.time }}</span></p>
+          <h3 class="mt-2 font-display text-xl text-[#1B1B18]">{{ session.location }}</h3>
+          <p class="mt-1 text-[13px] text-[#6F6C66]">{{ session.activity }}</p>
+          <p v-if="session.description" class="mt-3 text-[13px] leading-relaxed text-[#6F6C66]">{{ session.description }}</p>
+        </article>
+      </div>
+    </section>
+
     <!-- Sessions List -->
     <div class="space-y-4">
       <!-- Empty -->
+      <p v-if="archivedSessions.length" class="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A09D97]">Past gatherings</p>
       <div v-if="!sessions || !sessions.length" class="bg-white rounded-2xl border border-[#E6E3DE] p-10 text-center">
         <svg class="w-8 h-8 text-[#E6E3DE] mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
         <p class="text-[13px] text-[#A09D97]">No archived sessions yet.</p>
@@ -146,7 +181,7 @@ const createSession = async () => {
       <!-- Session Cards -->
       <article 
         v-else 
-        v-for="session in sessions" 
+        v-for="session in archivedSessions"
         :key="session.id" 
         class="bg-white rounded-2xl border border-[#E6E3DE] p-5 hover:border-[#CBC7BF] transition-colors"
       >

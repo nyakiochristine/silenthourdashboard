@@ -7,13 +7,19 @@ import Insights from './components/Insights.vue'
 import SpeakerPicker from './components/SpeakerPicker.vue'
 import AuthModal from './components/AuthModal.vue'
 import UserProfile from './components/UserProfile.vue'
+import LandingPage from './components/LandingPage.vue'
+import PersonalReading from './components/PersonalReading.vue'
+import RSVPModal from './components/RSVPModal.vue'
+import CalendarLinks from './components/CalendarLinks.vue'
 import { supabase } from './supabase'
 
 const readingLog = ref([])
 const user = ref(null)
 const userProfile = ref(null)
-const activeTab = ref('dashboard')
+const activeTab = ref('landing')
 const showAuthModal = ref(false)
+const showRSVPModal = ref(false)
+const rsvpLoading = ref(false)
 
 const sessions = ref([])
 
@@ -52,6 +58,10 @@ const isRSVPed = computed(() => {
   return activeSession.value.rsvps?.some(r => r.user_id === user.value.id)
 })
 
+const confirmedRSVPCount = computed(() => activeSession.value?.rsvps?.filter(r => (r.status || 'confirmed') === 'confirmed').length || 0)
+const isSessionFull = computed(() => Boolean(activeSession.value?.capacity) && confirmedRSVPCount.value >= activeSession.value.capacity)
+const myRSVP = computed(() => activeSession.value?.rsvps?.find(r => r.user_id === user.value?.id) || null)
+
 const toggleRSVP = async () => {
   if (!user.value || !activeSession.value) {
     showAuthModal.value = true
@@ -61,10 +71,22 @@ const toggleRSVP = async () => {
   if (isRSVPed.value) {
     await supabase.from('rsvps').delete().match({ session_id: activeSession.value.id, user_id: user.value.id })
   } else {
-    await supabase.from('rsvps').insert([{ session_id: activeSession.value.id, user_id: user.value.id }])
+    await supabase.from('rsvps').insert([{ session_id: activeSession.value.id, user_id: user.value.id, status: isSessionFull.value ? 'waitlisted' : 'confirmed' }])
   }
   
   await fetchSessions()
+}
+
+const openRSVP = () => {
+  if (!user.value) { showAuthModal.value = true; return }
+  if (activeSession.value) showRSVPModal.value = true
+}
+
+const confirmRSVP = async () => {
+  rsvpLoading.value = true
+  await toggleRSVP()
+  rsvpLoading.value = false
+  showRSVPModal.value = false
 }
 
 const fetchBooks = async () => {
@@ -106,6 +128,10 @@ const handleLogout = async () => {
   readingLog.value = []
 }
 
+const openDashboard = () => {
+  activeTab.value = 'dashboard'
+}
+
 onMounted(async () => {
   await fetchSessions()
   
@@ -122,15 +148,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#F7F6F3] text-[#1B1B18] selection:bg-[#2B593F]/10 font-body">
+  <div class="min-h-screen bg-[#F1F4ED] text-[#1B1B18] selection:bg-[#2B593F]/10 font-body">
     
     <!-- Sticky Navigation -->
     <nav class="border-b border-[#E6E3DE] bg-white/90 backdrop-blur-md sticky top-0 z-50">
       <div class="max-w-5xl mx-auto px-5 md:px-8 h-14 flex items-center justify-between">
-        <div class="flex items-center gap-3">
+        <button @click="activeTab = 'landing'" class="flex items-center gap-3 text-left">
           <span class="font-display text-lg text-[#1B1B18]">Meet & Read</span>
           <span class="hidden sm:inline text-[10px] tracking-[0.2em] uppercase text-[#A09D97] font-medium border-l border-[#E6E3DE] pl-3">Nairobi</span>
-        </div>
+        </button>
         
         <!-- Guest: Sign In -->
         <button 
@@ -164,7 +190,7 @@ onMounted(async () => {
     <main class="max-w-5xl mx-auto px-5 md:px-8 py-10 md:py-14">
       
       <!-- Hero Header -->
-      <header class="mb-10">
+      <header v-if="activeTab !== 'landing'" class="mb-10">
         <p class="text-[11px] tracking-[0.2em] uppercase font-semibold text-[#A09D97] mb-4">Silent Hour Dashboard</p>
         <h1 class="text-4xl md:text-[3.5rem] font-display text-[#1B1B18] tracking-tight leading-[1.1] mb-4 flex flex-wrap overflow-hidden py-1">
           <span 
@@ -181,7 +207,7 @@ onMounted(async () => {
       </header>
 
       <!-- Tab Navigation -->
-      <div class="flex items-center gap-1 mb-8 border-b border-[#E6E3DE]">
+      <div v-if="activeTab !== 'landing'" class="flex items-center gap-1 mb-8 border-b border-[#E6E3DE]">
         <button
           @click="activeTab = 'dashboard'"
           :class="[
@@ -217,6 +243,18 @@ onMounted(async () => {
           Profile
         </button>
         <button
+          v-if="user"
+          @click="activeTab = 'personal-reading'"
+          :class="[
+            activeTab === 'personal-reading'
+              ? 'text-[#1B1B18] border-[#1B1B18]'
+              : 'text-[#A09D97] border-transparent hover:text-[#6F6C66]',
+            'text-[13px] font-medium pb-3 border-b-2 transition-colors px-1 mr-5'
+          ]"
+        >
+          My Reading
+        </button>
+        <button
           v-if="userProfile?.role === 'admin'"
           @click="activeTab = 'archive'"
           class="text-[12px] font-medium text-[#2B593F] hover:text-[#1D4230] transition-colors ml-auto pb-3 flex items-center gap-1"
@@ -226,8 +264,10 @@ onMounted(async () => {
         </button>
       </div>
 
+      <LandingPage v-if="activeTab === 'landing'" :session="activeSession" :user="user" @explore="openDashboard" @join="showAuthModal = true" @rsvp="openRSVP" />
+
       <!-- Dashboard View -->
-      <div v-if="activeTab === 'dashboard'">
+      <div v-else-if="activeTab === 'dashboard'">
         <div v-if="activeSession" class="mb-6 bg-white rounded-2xl border border-[#E6E3DE] overflow-hidden flex flex-col sm:flex-row">
           <!-- Image Section -->
           <div v-if="activeSession.image_url" class="sm:w-1/3 h-48 sm:h-auto border-b sm:border-b-0 sm:border-r border-[#E6E3DE] relative">
@@ -275,14 +315,16 @@ onMounted(async () => {
                 
                 <!-- RSVP Action -->
                 <div class="bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl p-4 min-w-[140px] text-center shrink-0 w-full sm:w-auto">
-                  <p class="text-[11px] tracking-[0.1em] uppercase font-semibold text-[#A09D97] mb-2.5">{{ activeSession.rsvps?.length || 0 }} Attending</p>
+                  <p class="text-[11px] tracking-[0.1em] uppercase font-semibold text-[#A09D97] mb-2.5">{{ confirmedRSVPCount }}{{ activeSession.capacity ? ` / ${activeSession.capacity}` : '' }} Attending</p>
                   <button 
-                    @click="toggleRSVP"
+                    @click="openRSVP"
                     class="w-full text-[12px] font-semibold tracking-wide uppercase px-4 py-2.5 rounded-lg transition-all duration-200 active:scale-[0.98]"
                     :class="isRSVPed ? 'bg-[#EDF3EF] text-[#2B593F] border border-[#2B593F]/20 hover:bg-[#E2ECE6]' : 'bg-[#1B1B18] text-white hover:bg-[#2C2C28]'"
                   >
-                    {{ isRSVPed ? 'Attending ✓' : 'RSVP Now' }}
+                    {{ myRSVP?.status === 'waitlisted' ? 'Waitlisted' : (isRSVPed ? 'Attending ✓' : (isSessionFull ? 'Join Waitlist' : 'RSVP Now')) }}
                   </button>
+                  <p v-if="isSessionFull && !isRSVPed" class="mt-2 text-[10px] text-[#A09D97]">The session is full—join the waitlist.</p>
+                  <CalendarLinks :session="activeSession" class="mt-3 justify-center" />
                 </div>
               </div>
             </template>
@@ -317,7 +359,7 @@ onMounted(async () => {
       <div v-else-if="activeTab === 'archive'">
         <MeetupArchive 
           :profile="userProfile" 
-          :sessions="pastSessions"
+          :sessions="sessions"
           @refresh-sessions="fetchSessions"
         />
       </div>
@@ -325,6 +367,10 @@ onMounted(async () => {
       <!-- Profile View -->
       <div v-else-if="activeTab === 'profile' && user">
         <UserProfile :user="user" :profile="userProfile" />
+      </div>
+
+      <div v-else-if="activeTab === 'personal-reading' && user">
+        <PersonalReading :user="user" />
       </div>
     </main>
 
@@ -345,6 +391,7 @@ onMounted(async () => {
     </footer>
 
     <AuthModal v-if="showAuthModal" :supabase="supabase" @close="showAuthModal = false" />
+    <RSVPModal v-if="showRSVPModal && activeSession" :session="activeSession" :is-attending="isRSVPed" :is-full="isSessionFull" :rsvp-status="myRSVP?.status" :loading="rsvpLoading" @close="showRSVPModal = false" @confirm="confirmRSVP" />
   </div>
 </template>
 
