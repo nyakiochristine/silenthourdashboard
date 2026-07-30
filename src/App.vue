@@ -33,7 +33,7 @@ const getLocalTodayString = () => {
 const activeSession = computed(() => {
   const today = getLocalTodayString()
   // Upcoming sessions or sessions happening today (sort ascending by date to get the earliest upcoming one)
-  const upcoming = sessions.value.filter(s => s.session_date >= today).sort((a, b) => a.session_date.localeCompare(b.session_date))
+  const upcoming = sessions.value.filter(s => s.session_date >= today && !s.is_archived).sort((a, b) => a.session_date.localeCompare(b.session_date))
   return upcoming.length > 0 ? upcoming[0] : null
 })
 
@@ -46,7 +46,7 @@ const pastSessions = computed(() => {
 const fetchSessions = async () => {
   const { data, error } = await supabase
     .from('meetup_sessions')
-    .select('*, books(*), rsvps(*)') // Assuming books now has a session_id column linking back
+    .select('*, books(*), rsvps(*), session_media(*)')
     
   if (!error && data) {
     sessions.value = data

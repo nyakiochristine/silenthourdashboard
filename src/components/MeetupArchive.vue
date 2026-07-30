@@ -18,9 +18,12 @@ const emit = defineEmits(['refreshSessions'])
 const submitLoading = ref(false)
 const submitError = ref('')
 const showForm = ref(false)
+const editingId = ref(null)
+const posterFile = ref(null)
+const galleryFiles = ref([])
 const today = () => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
-const upcomingSessions = computed(() => props.sessions.filter(session => session.session_date >= today()).sort((a, b) => a.session_date.localeCompare(b.session_date)))
-const archivedSessions = computed(() => props.sessions.filter(session => session.session_date < today()).sort((a, b) => b.session_date.localeCompare(a.session_date)))
+const upcomingSessions = computed(() => props.sessions.filter(session => session.session_date >= today() && !session.is_archived).sort((a, b) => a.session_date.localeCompare(b.session_date)))
+const archivedSessions = computed(() => props.sessions.filter(session => session.session_date < today() || session.is_archived).sort((a, b) => b.session_date.localeCompare(a.session_date)))
 
 const newSession = reactive({
   session_date: '',
@@ -34,6 +37,9 @@ const newSession = reactive({
 })
 
 const resetNewSession = () => {
+  editingId.value = null
+  posterFile.value = null
+  galleryFiles.value = []
   newSession.session_date = ''
   newSession.time = ''
   newSession.start_time = ''
@@ -44,7 +50,31 @@ const resetNewSession = () => {
   newSession.image_url = ''
 }
 
-const createSession = async () => {
+const openCreateForm = () => { resetNewSession(); showForm.value = true }
+
+const editSession = (session) => {
+  editingId.value = session.id
+  Object.assign(newSession, {
+    session_date: session.session_date || '', time: session.time || '', start_time: session.start_time || '', capacity: session.capacity || '',
+    location: session.location || '', activity: session.activity || '', description: session.description || '', image_url: session.image_url || ''
+  })
+  posterFile.value = null
+  galleryFiles.value = []
+  showForm.value = true
+}
+
+const handlePoster = (event) => { posterFile.value = event.target.files?.[0] || null }
+const handleGallery = (event) => { galleryFiles.value = Array.from(event.target.files || []) }
+
+const uploadFile = async (file, folder) => {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+  const path = `${folder}/${Date.now()}-${safeName}`
+  const { error } = await supabase.storage.from('meetup-media').upload(path, file, { contentType: file.type, upsert: false })
+  if (error) throw error
+  return supabase.storage.from('meetup-media').getPublicUrl(path).data.publicUrl
+}
+
+const saveSession = async () => {
   submitLoading.value = true
   submitError.value = ''
 
@@ -54,21 +84,11 @@ const createSession = async () => {
     return
   }
 
-  const { error: sessionError } = await supabase
-    .from('meetup_sessions')
-    .insert([
-      {
-        host_id: props.profile?.id || null,
-        session_date: newSession.session_date,
-        time: newSession.time,
-        start_time: newSession.start_time || null,
-        capacity: newSession.capacity ? Number(newSession.capacity) : null,
-        location: newSession.location,
-        activity: newSession.activity,
-        description: newSession.description,
-        image_url: newSession.image_url
-      }
-    ])
+  const payload = { host_id: props.profile?.id || null, session_date: newSession.session_date, time: newSession.time, start_time: newSession.start_time || null, capacity: newSession.capacity ? Number(newSession.capacity) : null, location: newSession.location, activity: newSession.activity, description: newSession.description, image_url: newSession.image_url || null }
+  const request = editingId.value
+    ? supabase.from('meetup_sessions').update(payload).eq('id', editingId.value).select().single()
+    : supabase.from('meetup_sessions').insert([payload]).select().single()
+  const { data: savedSession, error: sessionError } = await request
 
   if (sessionError) {
     const diagnostic = [sessionError.message, sessionError.details, sessionError.hint, sessionError.code]
@@ -80,10 +100,32 @@ const createSession = async () => {
     return
   }
 
+  try {
+    if (posterFile.value) {
+      const posterUrl = await uploadFile(posterFile.value, `posters/${savedSession.id}`)
+      const { error } = await supabase.from('meetup_sessions').update({ image_url: posterUrl }).eq('id', savedSession.id)
+      if (error) throw error
+    }
+    if (galleryFiles.value.length) {
+      const media = await Promise.all(galleryFiles.value.map(async file => ({ session_id: savedSession.id, image_url: await uploadFile(file, `gallery/${savedSession.id}`) })))
+      const { error } = await supabase.from('session_media').insert(media)
+      if (error) throw error
+    }
+  } catch (uploadError) {
+    submitError.value = `Session saved, but the image upload failed: ${uploadError.message}`
+    submitLoading.value = false
+    return
+  }
   resetNewSession()
   showForm.value = false
   emit('refreshSessions')
   submitLoading.value = false
+}
+
+const toggleArchive = async (session) => {
+  const { error } = await supabase.from('meetup_sessions').update({ is_archived: !session.is_archived }).eq('id', session.id)
+  if (error) { submitError.value = error.message; return }
+  emit('refreshSessions')
 }
 </script>
 
@@ -98,7 +140,7 @@ const createSession = async () => {
       </div>
       <button 
         v-if="props.profile?.role === 'admin'" 
-        @click="showForm = !showForm"
+        @click="showForm ? (showForm = false) : openCreateForm()"
         class="flex items-center gap-1.5 text-[12px] font-semibold transition-colors self-start sm:self-auto"
         :class="showForm ? 'text-[#B84233] hover:text-[#943628]' : 'text-[#2B593F] hover:text-[#1D4230]'"
       >
@@ -110,7 +152,7 @@ const createSession = async () => {
 
     <!-- Admin Create Form -->
     <div v-if="showForm && props.profile?.role === 'admin'" class="bg-white rounded-2xl border border-[#E6E3DE] p-6 mb-6 animate-fade-in">
-      <h3 class="text-[15px] font-semibold text-[#1B1B18] mb-4">New Meetup Session</h3>
+      <h3 class="text-[15px] font-semibold text-[#1B1B18] mb-4">{{ editingId ? 'Edit Meetup Session' : 'New Meetup Session' }}</h3>
       
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         <div>
@@ -138,9 +180,19 @@ const createSession = async () => {
           <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Capacity</label>
           <input type="number" min="1" v-model="newSession.capacity" placeholder="e.g. 25 (Optional)" class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors placeholder:text-[#C5C2BC]" />
         </div>
-        <div class="md:col-span-2">
-          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Cafe Image URL</label>
-          <input v-model="newSession.image_url" placeholder="https://... (Optional picture of the venue)" class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors placeholder:text-[#C5C2BC]" />
+        <div>
+          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Meetup Poster</label>
+          <input type="file" accept="image/*" @change="handlePoster" class="block w-full text-[12px] text-[#6F6C66] file:mr-3 file:rounded-lg file:border-0 file:bg-[#EDF3EF] file:px-3 file:py-2 file:text-[11px] file:font-semibold file:text-[#2B593F]" />
+          <p class="mt-1 text-[10px] text-[#A09D97]">Upload a poster or venue image.</p>
+        </div>
+        <div>
+          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Poster URL (optional)</label>
+          <input v-model="newSession.image_url" placeholder="https://..." class="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#E6E3DE] rounded-xl text-sm text-[#1B1B18] focus:outline-none focus:border-[#2B593F] focus:ring-1 focus:ring-[#2B593F]/20 transition-colors placeholder:text-[#C5C2BC]" />
+        </div>
+        <div v-if="editingId" class="md:col-span-2">
+          <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Archive Photos</label>
+          <input type="file" accept="image/*" multiple @change="handleGallery" class="block w-full text-[12px] text-[#6F6C66] file:mr-3 file:rounded-lg file:border-0 file:bg-[#EDF3EF] file:px-3 file:py-2 file:text-[11px] file:font-semibold file:text-[#2B593F]" />
+          <p class="mt-1 text-[10px] text-[#A09D97]">Add photos after the meetup has happened.</p>
         </div>
         <div class="md:col-span-2">
           <label class="block text-[11px] tracking-[0.15em] uppercase font-semibold text-[#A09D97] mb-1.5">Description</label>
@@ -151,8 +203,8 @@ const createSession = async () => {
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E6E3DE]">
         <p v-if="submitError" class="text-[12px] text-[#B84233]">{{ submitError }}</p>
         <div v-else></div>
-        <button type="button" @click="createSession" :disabled="submitLoading" class="bg-[#2B593F] hover:bg-[#1D4230] text-white text-[12px] font-semibold tracking-wide uppercase px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-60 active:scale-[0.98]">
-          {{ submitLoading ? 'Saving...' : 'Save Session' }}
+        <button type="button" @click="saveSession" :disabled="submitLoading" class="bg-[#2B593F] hover:bg-[#1D4230] text-white text-[12px] font-semibold tracking-wide uppercase px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-60 active:scale-[0.98]">
+          {{ submitLoading ? 'Saving...' : (editingId ? 'Save Changes' : 'Save Session') }}
         </button>
       </div>
     </div>
@@ -165,6 +217,7 @@ const createSession = async () => {
           <h3 class="mt-2 font-display text-xl text-[#1B1B18]">{{ session.location }}</h3>
           <p class="mt-1 text-[13px] text-[#6F6C66]">{{ session.activity }}</p>
           <p v-if="session.description" class="mt-3 text-[13px] leading-relaxed text-[#6F6C66]">{{ session.description }}</p>
+          <div v-if="props.profile?.role === 'admin'" class="mt-4 flex flex-wrap gap-2"><button @click="editSession(session)" class="rounded-lg border border-[#2B593F]/20 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#2B593F]">Edit</button><button @click="toggleArchive(session)" class="rounded-lg border border-[#2B593F]/20 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#2B593F]">Archive meetup</button></div>
         </article>
       </div>
     </section>
@@ -196,6 +249,7 @@ const createSession = async () => {
           </span>
         </div>
         <p v-if="session.description" class="text-[13px] text-[#6F6C66] mb-4 leading-relaxed">{{ session.description }}</p>
+        <div v-if="session.session_media?.length" class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3"><img v-for="media in session.session_media" :key="media.id" :src="media.image_url" alt="Meetup memory" class="h-32 w-full rounded-xl object-cover" /></div>
 
         <!-- Book Grid -->
         <div v-if="session.books?.length" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -211,6 +265,7 @@ const createSession = async () => {
             </div>
           </div>
         </div>
+        <div v-if="props.profile?.role === 'admin'" class="mt-5 flex flex-wrap gap-2"><button @click="editSession(session)" class="rounded-lg border border-[#E6E3DE] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#2B593F]">Edit & add photos</button><button @click="toggleArchive(session)" class="rounded-lg border border-[#E6E3DE] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#6F6C66]">{{ session.is_archived ? 'Restore meetup' : 'Archive meetup' }}</button></div>
       </article>
     </div>
   </div>
