@@ -4,7 +4,7 @@ create table if not exists public.blog_submissions (
   author_name text not null,
   title text not null check (char_length(title) between 3 and 160),
   category text not null,
-  body text not null check (char_length(body) between 40 and 10000),
+  body text not null check (char_length(body) between 10 and 10000),
   status text not null default 'pending' check (status in ('pending', 'published', 'rejected')),
   created_at timestamptz not null default now()
 );
@@ -18,3 +18,16 @@ drop policy if exists "Admins can manage blog submissions" on public.blog_submis
 create policy "Members can submit blog articles" on public.blog_submissions for insert to authenticated with check (author_id = auth.uid());
 create policy "Authors can view own blog submissions" on public.blog_submissions for select to authenticated using (author_id = auth.uid());
 create policy "Admins can manage blog submissions" on public.blog_submissions for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Apply this when the table already exists from an earlier version of this file.
+alter table public.blog_submissions drop constraint if exists blog_submissions_body_check;
+alter table public.blog_submissions add constraint blog_submissions_body_check check (char_length(body) between 10 and 10000);
+
+alter table public.blog_submissions add column if not exists image_url text;
+
+drop policy if exists "Anyone can view published blog submissions" on public.blog_submissions;
+create policy "Anyone can view published blog submissions" on public.blog_submissions for select using (status = 'published');
+
+insert into storage.buckets (id, name, public) values ('blog-media', 'blog-media', true) on conflict (id) do update set public = true;
+drop policy if exists "Members can upload blog media" on storage.objects;
+create policy "Members can upload blog media" on storage.objects for insert to authenticated with check (bucket_id = 'blog-media' and (storage.foldername(name))[1] = auth.uid()::text);

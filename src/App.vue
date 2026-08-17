@@ -169,6 +169,13 @@ onMounted(async () => {
           <span class="font-display text-lg text-[#1B1B18]">Meet & Read</span>
           <span class="hidden sm:inline text-[10px] tracking-[0.2em] uppercase text-[#A09D97] font-medium border-l border-[#E6E3DE] pl-3">Nairobi</span>
         </button>
+        <div class="hidden items-center gap-4 md:flex">
+          <button @click="activeTab = 'dashboard'" class="text-[11px] font-semibold uppercase tracking-wide text-[#6F6C66] hover:text-[#6B1F36]">Session</button>
+          <button @click="activeTab = 'blog'" class="text-[11px] font-semibold uppercase tracking-wide text-[#6F6C66] hover:text-[#6B1F36]">Journal</button>
+          <button v-if="user" @click="activeTab = 'personal-reading'" class="text-[11px] font-semibold uppercase tracking-wide text-[#6F6C66] hover:text-[#6B1F36]">My Reading</button>
+          <button v-if="user" @click="activeTab = 'profile'" class="text-[11px] font-semibold uppercase tracking-wide text-[#6F6C66] hover:text-[#6B1F36]">Profile</button>
+          <button v-if="userProfile?.role === 'admin'" @click="activeTab = 'admin'" class="text-[11px] font-semibold uppercase tracking-wide text-[#6B1F36]">Admin</button>
+        </div>
         
         <!-- Guest: Sign In -->
         <button 

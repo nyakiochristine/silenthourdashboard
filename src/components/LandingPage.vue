@@ -1,4 +1,5 @@
 <script setup>
+import { computed, ref } from 'vue'
 import heroImage from '../assets/silent-reading-hero.png'
 import craftImage from '../assets/craft-table.png'
 import NewsletterSignup from './NewsletterSignup.vue'
@@ -10,6 +11,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['explore', 'join', 'rsvp'])
+const openFaq = ref(null)
+const recentBooks = computed(() => props.pastSessions.flatMap(session => session.books || []).filter(book => book.book).slice(0, 6))
+const faqs = [
+  ['Can I come alone?', 'Absolutely. Many members come by themselves; you will find a seat, a welcoming hello, and room to ease into the gathering.'],
+  ['Can I bring any genre?', 'Yes. Fiction, memoirs, poetry, self-help, essays, or an old favourite—bring what you genuinely want to read.'],
+  ['Is it really silent?', 'During the 90-minute reading hour, yes. Afterwards, the room opens into a gentle craft activity and conversation.'],
+  ['Do I have to finish my book?', 'Not at all. This is about returning to your book, not performing your reading goals.']
+]
 
 const readableDate = (date) => {
   if (!date) return ''
@@ -80,6 +89,13 @@ const readableDate = (date) => {
     <div class="p-7 md:p-10"><p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2B593F]">More than a book club</p><h2 class="mt-3 font-display text-3xl leading-tight text-[#1B1B18]">A little craft, a little conversation, a lot of good energy.</h2><p class="mt-4 text-[14px] leading-relaxed text-[#6F6C66]">After the quiet hour, we make gentle, low-pressure things together—collages, bookmarks, journaling, letter writing, and whatever fits the season. It is a simple way to rest your mind and meet people naturally.</p><p class="mt-6 font-display text-xl italic text-[#2B593F]">Not home. Not work. A place to belong.</p></div>
   </section>
 
+  <section class="mt-10 grid gap-5 lg:grid-cols-[1.05fr_.95fr]">
+    <div class="rounded-[2rem] bg-[#6B1F36] p-7 text-white md:p-10"><p class="text-[11px] font-semibold uppercase tracking-[.2em] text-[#F2BDC8]">Your first meetup</p><h2 class="mt-3 max-w-lg font-display text-4xl leading-[.98]">Come alone. Bring any book. You will fit right in.</h2><p class="mt-5 max-w-lg text-[14px] leading-relaxed text-[#F7DDE2]">No assigned reading, no pop quiz, and no pressure to introduce yourself before you are ready. Just a quiet room full of people choosing to read.</p><button @click="emit('explore')" class="mt-7 rounded-xl bg-white px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-[#6B1F36]">See your next gathering</button></div>
+    <div class="rounded-[2rem] border border-[#E6E3DE] bg-white p-7 md:p-10"><p class="text-[11px] font-semibold uppercase tracking-[.2em] text-[#8A2945]">What to bring</p><ul class="mt-5 space-y-4 text-[14px] text-[#6F6C66]"><li class="flex gap-3"><span class="text-lg text-[#D9654F]">✦</span><span><strong class="text-[#1B1B18]">Any book.</strong> Half-finished, brand new, fiction, poetry—anything.</span></li><li class="flex gap-3"><span class="text-lg text-[#D9654F]">✦</span><span><strong class="text-[#1B1B18]">Your curiosity.</strong> That is enough for your first visit.</span></li><li class="flex gap-3"><span class="text-lg text-[#D9654F]">✦</span><span><strong class="text-[#1B1B18]">A charged phone, if you like.</strong> Use it to log your book or save the calendar invite.</span></li></ul></div>
+  </section>
+
+  <section v-if="recentBooks.length" class="mt-10 rounded-[2rem] border border-[#E6E3DE] bg-white p-7 md:p-10"><p class="text-[11px] font-semibold uppercase tracking-[.2em] text-[#8A2945]">Books spotted recently</p><h2 class="mt-2 font-display text-3xl">No assigned reading. One wonderfully mismatched shelf.</h2><div class="mt-7 flex gap-3 overflow-x-auto pb-2"><article v-for="book in recentBooks" :key="book.id" class="w-28 shrink-0"><div class="h-40 overflow-hidden rounded-xl border border-[#E6E3DE] bg-[#FBF0F1]"><img v-if="book.cover_url" :src="book.cover_url" :alt="book.book" class="h-full w-full object-cover" /><div v-else class="flex h-full items-center justify-center font-display text-2xl text-[#8A2945]">M&R</div></div><p class="mt-2 line-clamp-2 text-[11px] font-semibold leading-tight text-[#1B1B18]">{{ book.book }}</p></article></div></section>
+
   <section v-if="pastSessions.length" class="mt-10">
     <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2B593F]">Community memories</p><h2 class="mt-2 font-display text-3xl text-[#1B1B18]">From our last gatherings.</h2></div><p class="max-w-sm text-[13px] leading-relaxed text-[#6F6C66]">A glimpse of the quiet reading, little crafts, and good company waiting for you.</p></div>
     <div class="grid gap-4 md:grid-cols-3">
@@ -89,6 +105,8 @@ const readableDate = (date) => {
       </article>
     </div>
   </section>
+
+  <section class="mt-10 grid gap-6 lg:grid-cols-[.75fr_1.25fr]"><div><p class="text-[11px] font-semibold uppercase tracking-[.2em] text-[#8A2945]">Questions, gently answered</p><h2 class="mt-3 font-display text-4xl leading-[.98]">Your soft invitation to begin.</h2><p class="mt-4 text-[14px] leading-relaxed text-[#6F6C66]">The only thing you need to do is show up with a book you want to return to.</p></div><div class="overflow-hidden rounded-2xl border border-[#E6E3DE] bg-white"><article v-for="([question, answer], index) in faqs" :key="question" class="border-b border-[#E6E3DE] last:border-0"><button @click="openFaq = openFaq === index ? null : index" class="flex w-full items-center justify-between gap-5 p-5 text-left"><span class="font-display text-xl text-[#1B1B18]">{{ question }}</span><span class="text-xl text-[#8A2945]">{{ openFaq === index ? '−' : '+' }}</span></button><p v-if="openFaq === index" class="px-5 pb-5 text-[13px] leading-relaxed text-[#6F6C66] animate-fade-in">{{ answer }}</p></article></div></section>
   <NewsletterSignup />
 </template>
 
