@@ -20,11 +20,14 @@ const readableDate = (date) => {
 
 <template>
   <section class="relative overflow-hidden rounded-[2rem] border border-[#E6E3DE] bg-white">
+    <span class="landing-orb landing-orb-coral"></span>
+    <span class="landing-orb landing-orb-gold"></span>
+    <span class="landing-orb landing-orb-blue"></span>
     <img :src="heroImage" alt="Members reading quietly together at a Meet and Read Nbo gathering" class="hero-image absolute inset-0 h-full w-full object-cover object-right" />
     <div class="absolute inset-0 bg-gradient-to-r from-white via-white/95 to-white/15"></div>
     <div class="relative grid min-h-[620px] items-center px-6 py-10 md:px-12 md:py-16 lg:grid-cols-[1.15fr_0.85fr]">
       <div class="hero-copy">
-        <p class="eyebrow-reveal mb-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#2B593F]">Nairobi's first silent book club</p>
+        <p class="eyebrow-reveal mb-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A2945]">Nairobi's first silent book club</p>
         <h1 class="max-w-2xl font-display text-5xl leading-[0.95] tracking-tight text-[#1B1B18] md:text-7xl">
           Your quiet third space is waiting.
         </h1>
@@ -32,7 +35,7 @@ const readableDate = (date) => {
           Meet & Read Nbo is a rising third space for Nairobi readers: a soft place between home and work to read in comfortable silence, make something with your hands, and find your people.
         </p>
         <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-          <button @click="emit('explore')" class="rounded-xl bg-[#2B593F] px-6 py-3.5 text-[12px] font-semibold uppercase tracking-wide text-white transition hover:bg-[#1D4230] active:scale-[0.98]">
+          <button @click="emit('explore')" class="rounded-xl bg-[#6B1F36] px-6 py-3.5 text-[12px] font-semibold uppercase tracking-wide text-white transition hover:bg-[#4C1025] active:scale-[0.98]">
             {{ session ? 'See the next meetup' : 'Explore the club' }}
           </button>
           <button v-if="session" @click="emit('rsvp')" class="rounded-xl border border-[#D7D3CB] bg-white/80 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-wide text-[#1B1B18] transition hover:border-[#2B593F]">RSVP for this meetup</button>
@@ -91,6 +94,10 @@ const readableDate = (date) => {
 
 <style scoped>
 .hero-image { animation: slowZoom 18s ease-in-out infinite alternate; }
+.landing-orb { position: absolute; z-index: 1; display: block; pointer-events: none; border-radius: 999px; mix-blend-mode: multiply; opacity: .74; filter: blur(1px); }
+.landing-orb-coral { width: 210px; height: 210px; top: -92px; right: 28%; background: #B84E6A; animation: orbitOne 16s ease-in-out infinite alternate; }
+.landing-orb-gold { width: 96px; height: 96px; right: 4%; bottom: 44px; background: #F2BE58; animation: orbitTwo 12s ease-in-out infinite alternate; }
+.landing-orb-blue { width: 70px; height: 70px; top: 18%; right: 9%; border-radius: 24px; background: #8C3E58; transform: rotate(18deg); animation: twirl 17s linear infinite; }
 .hero-copy { animation: riseIn .8s cubic-bezier(.16, 1, .3, 1) both; }
 .eyebrow-reveal { animation: fadeIn .8s .12s both; }
 .session-card { animation: riseIn .85s .18s cubic-bezier(.16, 1, .3, 1) both; }
@@ -101,5 +108,8 @@ const readableDate = (date) => {
 @keyframes slowZoom { from { transform: scale(1); } to { transform: scale(1.045); } }
 @keyframes riseIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .hero-image, .hero-copy, .eyebrow-reveal, .session-card, .story-card { animation: none; } .story-card:hover { transform: none; } }
+@keyframes orbitOne { from { transform: translate3d(0, 0, 0) rotate(0deg); } to { transform: translate3d(-36px, 34px, 0) rotate(25deg); } }
+@keyframes orbitTwo { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-14px, -26px, 0) scale(1.12); } }
+@keyframes twirl { from { transform: rotate(18deg); } to { transform: rotate(378deg); } }
+@media (prefers-reduced-motion: reduce) { .hero-image, .hero-copy, .eyebrow-reveal, .session-card, .story-card, .landing-orb { animation: none; } .story-card:hover { transform: none; } }
 </style>

@@ -13,6 +13,7 @@ import RSVPModal from './components/RSVPModal.vue'
 import CalendarLinks from './components/CalendarLinks.vue'
 import UpcomingMeetupCard from './components/UpcomingMeetupCard.vue'
 import AdminDashboard from './components/AdminDashboard.vue'
+import Blog from './components/Blog.vue'
 import { supabase } from './supabase'
 
 const readingLog = ref([])
@@ -20,6 +21,7 @@ const user = ref(null)
 const userProfile = ref(null)
 const activeTab = ref('landing')
 const showAuthModal = ref(false)
+const authModalMode = ref('signin')
 const showRSVPModal = ref(false)
 const rsvpLoading = ref(false)
 
@@ -149,12 +151,16 @@ onMounted(async () => {
       userProfile.value = null
     }
     fetchBooks()
+    if (_event === 'PASSWORD_RECOVERY') {
+      authModalMode.value = 'recovery'
+      showAuthModal.value = true
+    }
   })
 })
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#F1F4ED] text-[#1B1B18] selection:bg-[#2B593F]/10 font-body">
+  <div class="min-h-screen bg-[#FBF0F1] text-[#1B1B18] selection:bg-[#6B1F36]/15 font-body">
     
     <!-- Sticky Navigation -->
     <nav class="border-b border-[#E6E3DE] bg-white/90 backdrop-blur-md sticky top-0 z-50">
@@ -260,6 +266,7 @@ onMounted(async () => {
         >
           My Reading
         </button>
+        <button @click="activeTab = 'blog'" :class="[activeTab === 'blog' ? 'text-[#1B1B18] border-[#1B1B18]' : 'text-[#A09D97] border-transparent hover:text-[#6F6C66]', 'text-[13px] font-medium pb-3 border-b-2 transition-colors px-1 mr-5']">Journal</button>
         <button
           v-if="userProfile?.role === 'admin'"
           @click="activeTab = 'admin'"
@@ -379,6 +386,9 @@ onMounted(async () => {
       <div v-else-if="activeTab === 'personal-reading' && user">
         <PersonalReading :user="user" />
       </div>
+      <div v-else-if="activeTab === 'blog'">
+        <Blog :user="user" :profile="userProfile" />
+      </div>
 
       <div v-else-if="activeTab === 'admin' && userProfile?.role === 'admin'">
         <AdminDashboard :sessions="sessions" />
@@ -401,7 +411,7 @@ onMounted(async () => {
       </div>
     </footer>
 
-    <AuthModal v-if="showAuthModal" :supabase="supabase" @close="showAuthModal = false" />
+    <AuthModal v-if="showAuthModal" :supabase="supabase" :initial-mode="authModalMode" @close="showAuthModal = false; authModalMode = 'signin'" />
     <RSVPModal v-if="showRSVPModal && activeSession" :session="activeSession" :is-attending="isRSVPed" :is-full="isSessionFull" :rsvp-status="myRSVP?.status" :loading="rsvpLoading" @close="showRSVPModal = false" @confirm="confirmRSVP" />
   </div>
 </template>
