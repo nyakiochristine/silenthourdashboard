@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+type RsvpStatus = 'confirmed' | 'waitlisted'
+
+type RsvpRequest = {
+  sessionId: number
+  status: RsvpStatus
+}
+
 serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -21,7 +28,7 @@ serve(async (request) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser()
     if (userError || !user?.email) throw new Error('Unable to identify the signed-in member.')
 
-    const { sessionId, status } = await request.json()
+    const { sessionId, status } = await request.json() as RsvpRequest
     if (!sessionId || !['confirmed', 'waitlisted'].includes(status)) throw new Error('Invalid RSVP request.')
 
     const { data: session, error: sessionError } = await userClient
@@ -59,6 +66,7 @@ serve(async (request) => {
 
     return Response.json({ sent: true }, { headers: corsHeaders })
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 400, headers: corsHeaders })
+    const message = error instanceof Error ? error.message : 'Unable to send RSVP confirmation.'
+    return Response.json({ error: message }, { status: 400, headers: corsHeaders })
   }
 })
