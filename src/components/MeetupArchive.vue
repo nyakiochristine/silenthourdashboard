@@ -1,6 +1,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
+import BookSearch from './BookSearch.vue'
 
 const props = defineProps({
   profile: {
@@ -21,6 +22,11 @@ const showForm = ref(false)
 const editingId = ref(null)
 const posterFile = ref(null)
 const galleryFiles = ref([])
+const bookSessionId = ref(null)
+const archiveBook = reactive({ title: '', reader: '', genre: 'Fiction', progress: '' })
+const archiveSelectedBook = ref(null)
+const bookLoading = ref(false)
+const bookError = ref('')
 const today = () => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
 const upcomingSessions = computed(() => props.sessions.filter(session => session.session_date >= today() && !session.is_archived).sort((a, b) => a.session_date.localeCompare(b.session_date)))
 const archivedSessions = computed(() => props.sessions.filter(session => session.session_date < today() || session.is_archived).sort((a, b) => b.session_date.localeCompare(a.session_date)))
@@ -66,9 +72,53 @@ const editSession = (session) => {
 const handlePoster = (event) => { posterFile.value = event.target.files?.[0] || null }
 const handleGallery = (event) => { galleryFiles.value = Array.from(event.target.files || []) }
 
+const openBookForm = (session) => {
+  bookSessionId.value = bookSessionId.value === session.id ? null : session.id
+  bookError.value = ''
+  archiveBook.title = ''
+  archiveBook.reader = ''
+  archiveBook.genre = 'Fiction'
+  archiveBook.progress = ''
+  archiveSelectedBook.value = null
+}
+
+const selectArchiveBook = (book) => {
+  archiveSelectedBook.value = book
+  archiveBook.title = book?.title || archiveBook.title
+}
+
+const addArchivedBook = async () => {
+  if (!bookSessionId.value || !archiveBook.title.trim() || !archiveBook.reader.trim()) {
+    bookError.value = 'Book title and reader name are required.'
+    return
+  }
+  bookLoading.value = true
+  bookError.value = ''
+  const { error } = await supabase.from('books').insert([{
+    session_id: bookSessionId.value,
+    book: archiveBook.title.trim(),
+    reader: archiveBook.reader.trim(),
+    author: archiveSelectedBook.value?.authors?.join(', ') || null,
+    page_count: archiveSelectedBook.value?.pageCount || null,
+    cover_url: archiveSelectedBook.value?.cover || null,
+    publisher: archiveSelectedBook.value?.publisher || null,
+    genre: archiveBook.genre,
+    progress: archiveBook.progress.trim() || null
+  }])
+  bookLoading.value = false
+  if (error) {
+    bookError.value = [error.message, error.details, error.hint].filter(Boolean).join(' — ')
+    return
+  }
+  bookSessionId.value = null
+  emit('refreshSessions')
+}
+
 const uploadFile = async (file, folder) => {
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
   const path = `${folder}/${Date.now()}-${safeName}`
+  if (!file.type.startsWith('image/')) throw new Error('Please select an image file.')
+  if (file.size > 6 * 1024 * 1024) throw new Error(`${file.name} is larger than 6 MB. Please choose a smaller image.`)
   const { error } = await supabase.storage.from('meetup-media').upload(path, file, { contentType: file.type, upsert: false })
   if (error) throw error
   return supabase.storage.from('meetup-media').getPublicUrl(path).data.publicUrl
@@ -112,7 +162,7 @@ const saveSession = async () => {
       if (error) throw error
     }
   } catch (uploadError) {
-    submitError.value = `Session saved, but the image upload failed: ${uploadError.message}`
+    submitError.value = `Session saved, but the image upload failed: ${uploadError.message || 'Check that the meetup-media Storage bucket and its admin upload policy were created.'}`
     submitLoading.value = false
     return
   }
@@ -265,7 +315,12 @@ const toggleArchive = async (session) => {
             </div>
           </div>
         </div>
-        <div v-if="props.profile?.role === 'admin'" class="mt-5 flex flex-wrap gap-2"><button @click="editSession(session)" class="rounded-lg border border-[#E6E3DE] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#2B593F]">Edit & add photos</button><button @click="toggleArchive(session)" class="rounded-lg border border-[#E6E3DE] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#6F6C66]">{{ session.is_archived ? 'Restore meetup' : 'Archive meetup' }}</button></div>
+        <div v-if="props.profile?.role === 'admin'" class="mt-5 flex flex-wrap gap-2"><button @click="editSession(session)" class="rounded-lg border border-[#E6E3DE] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#2B593F]">Edit & add photos</button><button @click="openBookForm(session)" class="rounded-lg border border-[#E6E3DE] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#2B593F]">{{ bookSessionId === session.id ? 'Close book form' : 'Add a missing book' }}</button><button @click="toggleArchive(session)" class="rounded-lg border border-[#E6E3DE] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#6F6C66]">{{ session.is_archived ? 'Restore meetup' : 'Archive meetup' }}</button></div>
+        <form v-if="bookSessionId === session.id" @submit.prevent="addArchivedBook" class="mt-4 rounded-xl border border-[#DCE5DC] bg-[#F1F4ED] p-4">
+          <p class="text-[11px] font-semibold uppercase tracking-[.18em] text-[#2B593F]">Add a book from this meetup</p>
+          <div class="mt-3 grid gap-3 md:grid-cols-2"><BookSearch v-model:query="archiveBook.title" @select-book="selectArchiveBook" /><div><label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-[.15em] text-[#A09D97]">Reader name</label><input v-model="archiveBook.reader" required placeholder="Who read it?" class="w-full rounded-xl border border-[#E6E3DE] bg-white px-3.5 py-2.5 text-sm focus:border-[#2B593F] focus:outline-none" /></div><div><label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-[.15em] text-[#A09D97]">Genre</label><select v-model="archiveBook.genre" class="w-full rounded-xl border border-[#E6E3DE] bg-white px-3.5 py-2.5 text-sm focus:border-[#2B593F] focus:outline-none"><option>Fiction</option><option>Non-Fiction</option><option>Sci-Fi</option><option>Biography</option><option>Poetry</option><option>Self-Help</option><option>History</option></select></div><div><label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-[.15em] text-[#A09D97]">Page / progress</label><input v-model="archiveBook.progress" placeholder="Optional" class="w-full rounded-xl border border-[#E6E3DE] bg-white px-3.5 py-2.5 text-sm focus:border-[#2B593F] focus:outline-none" /></div></div>
+          <div class="mt-4 flex items-center justify-between gap-3"><p v-if="bookError" class="text-[12px] text-[#B84233]">{{ bookError }}</p><span v-else></span><button :disabled="bookLoading" class="rounded-xl bg-[#2B593F] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-white disabled:opacity-60">{{ bookLoading ? 'Saving...' : 'Save book' }}</button></div>
+        </form>
       </article>
     </div>
   </div>

@@ -11,6 +11,8 @@ import LandingPage from './components/LandingPage.vue'
 import PersonalReading from './components/PersonalReading.vue'
 import RSVPModal from './components/RSVPModal.vue'
 import CalendarLinks from './components/CalendarLinks.vue'
+import UpcomingMeetupCard from './components/UpcomingMeetupCard.vue'
+import AdminDashboard from './components/AdminDashboard.vue'
 import { supabase } from './supabase'
 
 const readingLog = ref([])
@@ -68,10 +70,14 @@ const toggleRSVP = async () => {
     return
   }
   
+  let rsvpStatus = ''
   if (isRSVPed.value) {
     await supabase.from('rsvps').delete().match({ session_id: activeSession.value.id, user_id: user.value.id })
   } else {
-    await supabase.from('rsvps').insert([{ session_id: activeSession.value.id, user_id: user.value.id, status: isSessionFull.value ? 'waitlisted' : 'confirmed' }])
+    rsvpStatus = isSessionFull.value ? 'waitlisted' : 'confirmed'
+    await supabase.from('rsvps').insert([{ session_id: activeSession.value.id, user_id: user.value.id, status: rsvpStatus }])
+    const { error: emailError } = await supabase.functions.invoke('send-rsvp-confirmation', { body: { sessionId: activeSession.value.id, status: rsvpStatus } })
+    if (emailError) console.error('RSVP email could not be sent:', emailError)
   }
   
   await fetchSessions()
@@ -256,19 +262,20 @@ onMounted(async () => {
         </button>
         <button
           v-if="userProfile?.role === 'admin'"
-          @click="activeTab = 'archive'"
+          @click="activeTab = 'admin'"
           class="text-[12px] font-medium text-[#2B593F] hover:text-[#1D4230] transition-colors ml-auto pb-3 flex items-center gap-1"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-          New Meetup
+          Admin
         </button>
       </div>
 
-      <LandingPage v-if="activeTab === 'landing'" :session="activeSession" :user="user" @explore="openDashboard" @join="showAuthModal = true" @rsvp="openRSVP" />
+      <LandingPage v-if="activeTab === 'landing'" :session="activeSession" :past-sessions="pastSessions" :user="user" @explore="openDashboard" @join="showAuthModal = true" @rsvp="openRSVP" />
 
       <!-- Dashboard View -->
       <div v-else-if="activeTab === 'dashboard'">
-        <div v-if="activeSession" class="mb-6 bg-white rounded-2xl border border-[#E6E3DE] overflow-hidden flex flex-col sm:flex-row">
+        <UpcomingMeetupCard v-if="activeSession" class="mb-6" :session="activeSession" :attending="isRSVPed" :rsvp-status="myRSVP?.status" :confirmed-count="confirmedRSVPCount" :full="isSessionFull" @rsvp="openRSVP" />
+        <div v-if="false" class="mb-6 bg-white rounded-2xl border border-[#E6E3DE] overflow-hidden flex flex-col sm:flex-row">
           <!-- Image Section -->
           <div v-if="activeSession.image_url" class="sm:w-1/3 h-48 sm:h-auto border-b sm:border-b-0 sm:border-r border-[#E6E3DE] relative">
              <img :src="activeSession.image_url" alt="Venue" class="w-full h-full object-cover" />
@@ -371,6 +378,10 @@ onMounted(async () => {
 
       <div v-else-if="activeTab === 'personal-reading' && user">
         <PersonalReading :user="user" />
+      </div>
+
+      <div v-else-if="activeTab === 'admin' && userProfile?.role === 'admin'">
+        <AdminDashboard :sessions="sessions" />
       </div>
     </main>
 
